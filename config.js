@@ -1,67 +1,29 @@
-function doPost(e) {
-  try {
-    // 1. Conecta com a planilha do Google onde este script está salvo
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    
-    // 2. Transforma o texto que chegou do GitHub de volta em dados que o sistema entende
-    var dados = JSON.parse(e.postData.contents);
-    
-    // 3. Define o nome da aba (Se o HTML não mandar nome, ele joga na aba "Geral")
-    var nomeAba = dados.consultor || "Geral"; 
-    
-    // 4. Procura se já existe uma aba com o nome desse consultor
-    var plan = ss.getSheetByName(nomeAba);
-    
-    // 5. Se a aba não existir, o sistema cria ela e já coloca a linha de cabeçalho!
-    if (!plan) {
-      plan = ss.insertSheet(nomeAba);
-      
-      // Criação dos cabeçalhos na linha 1 da nova aba
-      plan.appendRow([
-        "Data e Hora", 
-        "Cliente", 
-        "Empreendimento", 
-        "Valor do Imóvel", 
-        "Prestação Mensal", 
-        "Valor Financiado", 
-        "Desconto", 
-        "Entrada", 
-        "Desconto Morar Bem", 
-        "Desconto Codhab", 
-        "Entrada Facilitada", 
-        "Observações", 
-        "Taxas Cartoriais", 
-        "Seguro Obra"
-      ]);
-    }
-    
-    // 6. Registra a data e hora exata em que o botão foi clicado
-    var dataAtual = new Date();
+// ARQUIVO DE CONFIGURAÇÃO DO SIMULADOR
+var CONFIG = {
+    // Configurações Visuais
+    "imagemFundo": "https://b3577058.smushcdn.com/3577058/wp-content/uploads/2025/05/Maiores-predios-do-Brasil-Orion-Complex-o-maior-predio-de-Goiania-720x511.webp?lossy=1&strip=0&webp=1",
+    "nomeConsultora": "JULIANE COSTA",
 
-    // 7. Insere uma nova linha debaixo do cabeçalho com os dados do cliente
-    // (A ordem aqui está perfeitamente alinhada com os campos do seu HTML)
-    plan.appendRow([
-      dataAtual,
-      dados.cliente,
-      dados.empreendimento,
-      dados.vImovelLocal,
-      dados.vParcela,
-      dados.vFinanciado,
-      dados.vDesconto,
-      dados.vEntrada,
-      dados.vMorarBem,
-      dados.vCodhab,
-      dados.vEntradaFacil,
-      dados.vObservacoes,
-      dados.vCartorio,
-      dados.vSeguroObra
-    ]);
+    // Dados Básicos
+    "cliente": "",
+    "empreendimento": "",
 
-    // 8. Avisa o site no GitHub que deu tudo certo
-    return ContentService.createTextOutput("Sucesso");
-    
-  } catch(erro) {
-    // Se ocorrer alguma falha, manda a mensagem de erro para o painel
-    return ContentService.createTextOutput("Erro: " + erro.toString());
-  }
-}
+    // Painel Principal (Lado Esquerdo)
+    "vParcela": "R$ 800,00",
+    "vImovelLocal": "R$ 360.000,00",
+
+    // Valores e Descontos
+    "vFinanciado": "R$ 0,00",
+    "vDesconto": "R$ 0,00",
+    "vEntrada": "R$ 20.000,00",
+
+    // Subsídios e Facilitadores
+    "vMorarBem": "",
+    "vCodhab": "",
+    "vEntradaFacil": "30x de R$ 500,00",
+    "vObservacoes": "",
+
+    // Taxas e Encargos
+    "vCartorio": "Inclusa",
+    "vSeguroObra": "20% a 80%"
+};
