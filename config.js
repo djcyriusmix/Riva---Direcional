@@ -9,7 +9,7 @@ var CONFIG = {
     "empreendimento": "",
 
     // Painel Principal (Lado Esquerdo)
-    "vParcela": "R$ 800,00",
+    "vParcela": "R$ 950,00",
     "vImovelLocal": "R$ 360.000,00",
 
     // Valores e Descontos
