@@ -336,19 +336,29 @@
     // =========================================================
     // ⚠️ ATENÇÃO: COLE O SEU LINK DO APPS SCRIPT AQUI NA LINHA ABAIXO
     // =========================================================
-    const urlDoGoogle = "COLE_AQUI_O_SEU_LINK_DO_APPS_SCRIPT";
+    const urlDoGoogle = "https://script.google.com/macros/s/AKfycbxDGQX2j8GtDSl7Vb2IgN55871R7-2HmlE9mgvv1sT7jE4loFRhhu8aRqEc-e_VlF3qYw/exec";
 
     try {
-      // Faz o envio silencioso
-      await fetch(urlDoGoogle, {
+      // Faz o envio e aguarda a RESPOSTA do Google
+      const resposta = await fetch(urlDoGoogle, {
         method: 'POST',
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(dadosParaSalvar)
       });
 
-      alert("✅ Dados salvos com sucesso na planilha!");
+      // Lê o que o Google respondeu
+      const textoRetorno = await resposta.text();
+
+      // Se o Google respondeu "Sucesso" (que foi o que programamos no Código.gs)
+      if (textoRetorno === "Sucesso") {
+        alert("✅ Dados salvos com sucesso na planilha!");
+      } else {
+        // Se o Google devolveu qualquer outra coisa, ele mostra o erro na tela
+        alert("❌ Erro lá no Google: " + textoRetorno);
+      }
+
     } catch (erro) {
-      alert("❌ Ocorreu um erro ao tentar salvar. Verifique sua conexão.");
+      alert("❌ Ocorreu um erro de conexão. Verifique sua internet.");
     } finally {
       // Volta o botão ao normal
       btnSalvar.innerText = "💾 Salvar na Planilha";
