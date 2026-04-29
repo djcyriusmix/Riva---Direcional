@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Simulador de Imóveis Pro</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Montserrat:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <script src="config.js"></script>
+
+  <style>
+    :root { --primary: #0a2b22; --accent: #c5a059; --bg: #fdfaf5; --text: #333; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Montserrat', sans-serif; background: var(--bg); margin: 0; padding: 15px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    
+    .app-container { background: white; width: 100%; max-width: 1200px; border-radius: 20px; box-shadow: 0 15px 50px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden; border: 1px solid rgba(197, 160, 89, 0.2); }
+    
+    .side-panel { position: relative; background: var(--primary); color: white; padding: 40px; display: flex; flex-direction: column; justify-content: center; border-bottom: 5px solid var(--accent); }
+    .bg-img { position: absolute; top:0; left:0; width:100%; height:100%; background-size: cover; background-position: center; opacity: 0.15; z-index: 0; }
+    .content-resumo { position: relative; z-index: 1; }
+    
+    .parcela-highlight-box { background: rgba(255,255,255,0.05); border: 1px solid var(--accent); padding: 25px; border-radius: 15px; text-align: center; backdrop-filter: blur(5px); margin-bottom: 20px; }
+    
+    /* TEXTO BRANCO COM FUNDO ESCURECIDO PARA NÃO PERDER A VISIBILIDADE */
+    .parcela-input-grande { 
+      background: rgba(0,0,0,0.1); 
+      border: 1px solid rgba(197, 160, 89, 0.3); 
+      color: white !important; 
+      font-family: 'Playfair Display'; 
+      font-size: 38px; 
+      text-align: center; 
+      width: 100%; 
+      outline: none; 
+      font-weight: 700; 
+      border-radius: 8px;
+      transition: 0.3s;
+    }
+    .parcela-input-grande:focus { background: rgba(0,0,0,0.3); border-color: var(--accent); }
+
+    .imovel-input-local { 
+      background: rgba(0,0,0,0.1); 
+      border: none; 
+      border-bottom: 1px solid var(--accent); 
+      color: white !important; 
+      font-family: 'Montserrat', sans-serif; 
+      font-size: 18px; 
+      font-weight: 700; 
+      text-align: center; 
+      width: 80%; 
+      outline: none; 
+      margin-top: 5px; 
+      border-radius: 4px 4px 0 0;
+      transition: 0.3s;
+    }
+    .imovel-input-local:focus { background: rgba(0,0,0,0.3); }
+
+    .form-panel { padding: 40px; background: white; overflow-y: auto; }
+    .section-title { font-size: 11px; color: var(--accent); font-weight: 700; text-transform: uppercase; margin: 25px 0 10px; border-bottom: 1px solid rgba(197,160,89,0.3); padding-bottom: 5px; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+    
+    label { display: block; font-size: 11px; font-weight: 600; color: var(--primary); margin-bottom: 5px; }
+    input, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-weight: 600; background: #fafafa; transition: 0.3s; font-family: 'Montserrat'; }
+    input:focus, textarea:focus { outline: none; border-color: var(--accent); background: white; }
+    
+    textarea { resize: vertical; min-height: 80px; line-height: 1.5; margin-top: -5px; }
+
+    .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; }
+    .btn-main { padding: 18px; border: none; border-radius: 8px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.3s; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 12px; }
+    
+    .btn-img { background: var(--accent); color: white; grid-column: span 1; }
+    .btn-pdf { background: var(--primary); color: white; grid-column: span 1; }
+    .btn-clear { background: transparent; border: 1px solid #ddd; color: #666; grid-column: span 2; padding: 12px; margin-top: 5px; font-weight: 600; cursor: pointer; border-radius: 8px; }
+
+    @media (min-width: 850px) {
+      .app-container { flex-direction: row; height: 92vh; }
+      .side-panel { width: 38%; border-bottom: none; border-right: 5px solid var(--accent); }
+      .form-panel { width: 62%; }
+      .grid { grid-template-columns: 1fr 1fr; }
+      .full-width { grid-column: span 2; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-container" id="simulador-card">
+  <div class="side-panel">
+    <div class="bg-img" id="bg-img"></div>
+    <div class="content-resumo">
+      <p id="consultora-nome" style="color:var(--accent); font-size:10px; font-weight:700; letter-spacing:2px;">CONSULTORA</p>
+      <h1 id="display-name" style="font-family:'Playfair Display'; font-size:32px; margin:10px 0 40px;">Cliente</h1>
+      
+      <div class="parcela-highlight-box">
+        <p style="font-size:11px; color:var(--accent); margin-bottom:10px; font-weight:700;">PRESTAÇÃO MENSAL</p>
+        <input type="text" id="vParcela" class="money parcela-input-grande" placeholder="R$ 0,00">
+      </div>
+
+      <div style="font-size:11px; color:var(--accent); text-transform:uppercase; border-top:1px solid rgba(197,160,89,0.3); padding-top:20px; text-align: center; display: flex; flex-direction: column; align-items: center;">
+        <label style="color: var(--accent); margin-bottom: 0;">VALOR DO IMÓVEL</label>
+        <input type="text" id="vImovelLocal" class="money imovel-input-local" placeholder="R$ 0,00">
+      </div>
+    </div>
+  </div>
+
+  <div class="form-panel">
+    <div class="section-title">Dados Básicos</div>
+    <div class="grid">
+      <div class="field full-width"><label>Nome do Cliente</label><input type="text" id="cliente" oninput="updateUI()"></div>
+      <div class="field full-width"><label>Empreendimento</label><input type="text" id="empreendimento"></div>
+    </div>
+
+    <div class="section-title">Valores e Descontos</div>
+    <div class="grid">
+      <div class="field"><label>Valor Financiado</label><input type="text" id="vFinanciado" class="money"></div>
+      <div class="field"><label>Desconto</label><input type="text" id="vDesconto" class="money"></div>
+      <div class="field full-width"><label>Entrada</label><input type="text" id="vEntrada" class="money"></div>
+    </div>
+
+    <div class="section-title">Subsídios e Facilitadores</div>
+    <div class="grid">
+      <div class="field"><label>Desconto Morar Bem</label><input type="text" id="vMorarBem" class="money"></div>
+      <div class="field"><label>Desconto Codhab</label><input type="text" id="vCodhab" class="money"></div>
+      
+      <div class="field full-width">
+        <label>Entrada Facilitada</label>
+        <input type="text" id="vEntradaFacil" placeholder="Ex: 30x de R$ 500,00">
+        <textarea id="vObservacoes" placeholder="Observações adicionais sobre o pagamento..."></textarea>
+      </div>
+    </div>
+
+    <div class="section-title">Taxas e Encargos</div>
+    <div class="grid">
+      <div class="field"><label>Taxas Cartoriais</label><input type="text" id="vCartorio" placeholder="Ex: R$ 2.500 ou Inclusa"></div>
+      <div class="field"><label>Seguro Obra</label><input type="text" id="vSeguroObra" placeholder="Ex: 20% a 80%"></div>
+    </div>
+
+    <div id="action-buttons" class="btn-group">
+      <button class="btn-main btn-img" onclick="generateFile('img')">📸 Copiar Imagem</button>
+      <button class="btn-main btn-pdf" onclick="generateFile('pdf')">📄 Salvar PDF</button>
+      <button class="btn-clear" onclick="limparFormulario()">🔄 Reiniciar Simulador</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const allFields = ['cliente', 'empreendimento', 'vImovelLocal', 'vParcela', 'vFinanciado', 'vDesconto', 'vEntrada', 'vMorarBem', 'vCodhab', 'vEntradaFacil', 'vObservacoes', 'vCartorio', 'vSeguroObra'];
+
+  function applyMask(e) {
+    let v = e.target.value.replace(/\D/g, '');
+    if (v === '') { updateUI(); return; }
+    v = (parseInt(v) / 100).toFixed(2).replace('.', ',').replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+    e.target.value = 'R$ ' + v;
+    updateUI();
+  }
+  
+  document.querySelectorAll('.money').forEach(el => el.addEventListener('input', applyMask));
+
+  allFields.forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('input', (e) => localStorage.setItem('memoria_' + id, e.target.value));
+  });
+
+  function updateUI() {
+    document.getElementById('display-name').innerText = document.getElementById('cliente').value || "Cliente";
+  }
+
+  function limparFormulario() {
+    if(!confirm("Deseja limpar todos os dados e recarregar a configuração padrão?")) return;
+    
+    // Mostra um aviso visual rápido
+    document.getElementById('display-name').innerText = "Recarregando...";
+
+    // 1. Cria um novo "chamador" para o config.js
+    const scriptTag = document.createElement('script');
+    
+    // 2. O truque: adicionamos a hora atual no final do nome do arquivo (?t=12345)
+    // Isso engana o navegador e o obriga a ler o arquivo real da pasta de novo, ignorando o cache
+    scriptTag.src = 'config.js?t=' + new Date().getTime(); 
+    
+    // 3. O que acontece QUANDO o arquivo novo termina de carregar:
+    scriptTag.onload = () => {
+      
+      // Limpa a memória e puxa os dados do novo config.js
+      allFields.forEach(id => {
+        localStorage.removeItem('memoria_' + id);
+        const el = document.getElementById(id);
+        if(el) el.value = (typeof CONFIG !== 'undefined' && CONFIG[id] !== undefined) ? CONFIG[id] : "";
+      });
+
+      // Atualiza também a imagem de fundo e o nome da consultora
+      if (typeof CONFIG !== 'undefined') {
+        if(CONFIG.imagemFundo) {
+          document.getElementById('bg-img').style.backgroundImage = `url('${CONFIG.imagemFundo}')`;
+          localStorage.setItem('simulador_bg_img', CONFIG.imagemFundo);
+        }
+        if(CONFIG.nomeConsultora) {
+          document.getElementById('consultora-nome').innerText = "CONSULTORA - " + CONFIG.nomeConsultora;
+        }
+      }
+
+      updateUI();
+      
+      // Remove a tag de script que criamos só para não acumular lixo no código
+      document.body.removeChild(scriptTag);
+    };
+
+    // 4. Se der erro (ex: você apagou o config.js sem querer)
+    scriptTag.onerror = () => {
+      alert("⚠️ Não foi possível encontrar o arquivo 'config.js'. Ele foi movido ou renomeado?");
+      updateUI();
+    };
+
+    // 5. Aciona o carregamento
+    document.body.appendChild(scriptTag);
+  }
+
+  async function generateFile(type) {
+    const btnArea = document.getElementById('action-buttons');
+    btnArea.style.visibility = 'hidden';
+    
+    const inputs = document.querySelectorAll('input, textarea');
+    const placeholders = [];
+    
+    inputs.forEach(input => {
+      const parent = input.parentNode;
+      const text = document.createElement('div');
+      text.innerText = input.value || (input.tagName === 'TEXTAREA' ? '' : '---');
+      text.style.cssText = window.getComputedStyle(input).cssText;
+      text.style.border = 'none';
+      text.style.background = 'transparent';
+      text.style.paddingLeft = '0';
+      
+      placeholders.push({parent, input, text});
+      input.style.display = 'none';
+      parent.appendChild(text);
+    });
+
+    try {
+      const element = document.getElementById('simulador-card');
+      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+
+      if(type === 'img') {
+        canvas.toBlob(async blob => {
+          try {
+            const item = new ClipboardItem({ "image/png": blob });
+            await navigator.clipboard.write([item]);
+            alert("✅ Imagem copiada! Agora é só colar no WhatsApp.");
+          } catch (err) {
+            alert("Erro ao copiar imagem. Tente usar o botão de PDF.");
+          }
+        });
+      } else {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('l', 'mm', 'a4');
+        const imgData = canvas.toDataURL('image/png');
+        const pdfW = pdf.internal.pageSize.getWidth();
+        const pdfH = (canvas.height * pdfW) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
+        pdf.save(`Simulacao_${document.getElementById('cliente').value || 'Cliente'}.pdf`);
+      }
+    } catch (e) {
+      alert("Erro ao gerar arquivo.");
+    } finally {
+      placeholders.forEach(p => { p.text.remove(); p.input.style.display = ''; });
+      btnArea.style.visibility = 'visible';
+    }
+  }
+
+  window.onload = () => {
+    if (typeof CONFIG === 'undefined') {
+      alert("Arquivo 'config.js' não encontrado!");
+    } else {
+      const bgImgUrl = localStorage.getItem('simulador_bg_img') || CONFIG.imagemFundo;
+      if(bgImgUrl) document.getElementById('bg-img').style.backgroundImage = `url('${bgImgUrl}')`;
+      document.getElementById('consultora-nome').innerText = "CONSULTORA - " + (CONFIG.nomeConsultora || "");
+
+      allFields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          let mem = localStorage.getItem('memoria_' + id);
+          el.value = (mem !== null) ? mem : (CONFIG[id] || "");
+        }
+      });
+      updateUI();
+    }
+  };
+</script>
+</body>
+</html>
