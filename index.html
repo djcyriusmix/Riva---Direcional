@@ -22,7 +22,6 @@
     
     .parcela-highlight-box { background: rgba(255,255,255,0.05); border: 1px solid var(--accent); padding: 25px; border-radius: 15px; text-align: center; backdrop-filter: blur(5px); margin-bottom: 20px; }
     
-    /* TEXTO BRANCO COM FUNDO ESCURECIDO PARA NÃO PERDER A VISIBILIDADE */
     .parcela-input-grande { 
       background: rgba(0,0,0,0.1); 
       border: 1px solid rgba(197, 160, 89, 0.3); 
@@ -71,6 +70,18 @@
     .btn-img { background: var(--accent); color: white; grid-column: span 1; }
     .btn-pdf { background: var(--primary); color: white; grid-column: span 1; }
     .btn-clear { background: transparent; border: 1px solid #ddd; color: #666; grid-column: span 2; padding: 12px; margin-top: 5px; font-weight: 600; cursor: pointer; border-radius: 8px; }
+
+    /* --- CLASSE MÁGICA PARA RESOLVER O PROBLEMA DO CELULAR --- */
+    .force-desktop { 
+      flex-direction: row !important; 
+      width: 1200px !important; 
+      max-width: 1200px !important; 
+      height: auto !important; 
+    }
+    .force-desktop .side-panel { width: 38% !important; border-bottom: none !important; border-right: 5px solid var(--accent) !important; }
+    .force-desktop .form-panel { width: 62% !important; overflow: visible !important; }
+    .force-desktop .grid { grid-template-columns: 1fr 1fr !important; }
+    .force-desktop .full-width { grid-column: span 2 !important; }
 
     @media (min-width: 850px) {
       .app-container { flex-direction: row; height: 92vh; }
@@ -137,6 +148,9 @@
     <div id="action-buttons" class="btn-group">
       <button class="btn-main btn-img" onclick="generateFile('img')">📸 Copiar Imagem</button>
       <button class="btn-main btn-pdf" onclick="generateFile('pdf')">📄 Salvar PDF</button>
+      
+      <button class="btn-main full-width" style="background: #198754; color: #ffffff;" onclick="salvarNaPlanilha()" id="btn-salvar">💾 Salvar na Planilha</button>
+      
       <button class="btn-clear" onclick="limparFormulario()">🔄 Reiniciar Simulador</button>
     </div>
   </div>
@@ -166,28 +180,17 @@
 
   function limparFormulario() {
     if(!confirm("Deseja limpar todos os dados e recarregar a configuração padrão?")) return;
-    
-    // Mostra um aviso visual rápido
     document.getElementById('display-name').innerText = "Recarregando...";
-
-    // 1. Cria um novo "chamador" para o config.js
     const scriptTag = document.createElement('script');
-    
-    // 2. O truque: adicionamos a hora atual no final do nome do arquivo (?t=12345)
-    // Isso engana o navegador e o obriga a ler o arquivo real da pasta de novo, ignorando o cache
     scriptTag.src = 'config.js?t=' + new Date().getTime(); 
     
-    // 3. O que acontece QUANDO o arquivo novo termina de carregar:
     scriptTag.onload = () => {
-      
-      // Limpa a memória e puxa os dados do novo config.js
       allFields.forEach(id => {
         localStorage.removeItem('memoria_' + id);
         const el = document.getElementById(id);
         if(el) el.value = (typeof CONFIG !== 'undefined' && CONFIG[id] !== undefined) ? CONFIG[id] : "";
       });
 
-      // Atualiza também a imagem de fundo e o nome da consultora
       if (typeof CONFIG !== 'undefined') {
         if(CONFIG.imagemFundo) {
           document.getElementById('bg-img').style.backgroundImage = `url('${CONFIG.imagemFundo}')`;
@@ -197,30 +200,33 @@
           document.getElementById('consultora-nome').innerText = "CONSULTORA - " + CONFIG.nomeConsultora;
         }
       }
-
       updateUI();
-      
-      // Remove a tag de script que criamos só para não acumular lixo no código
       document.body.removeChild(scriptTag);
     };
 
-    // 4. Se der erro (ex: você apagou o config.js sem querer)
     scriptTag.onerror = () => {
       alert("⚠️ Não foi possível encontrar o arquivo 'config.js'. Ele foi movido ou renomeado?");
       updateUI();
     };
-
-    // 5. Aciona o carregamento
     document.body.appendChild(scriptTag);
   }
 
+  // NOVA FUNÇÃO MELHORADA DE PDF/IMG PARA CELULAR
   async function generateFile(type) {
     const btnArea = document.getElementById('action-buttons');
-    btnArea.style.visibility = 'hidden';
+    btnArea.style.display = 'none'; // Esconde os botões por completo
+    
+    const card = document.getElementById('simulador-card');
+    const originalScrollY = window.scrollY; // Guarda onde a tela estava
+
+    // FORÇA O FORMATO PC NO CELULAR
+    card.classList.add('force-desktop');
+    window.scrollTo(0, 0); // Sobe a tela para não cortar a foto
     
     const inputs = document.querySelectorAll('input, textarea');
     const placeholders = [];
     
+    // Troca os campos de texto por div para a foto ficar limpa
     inputs.forEach(input => {
       const parent = input.parentNode;
       const text = document.createElement('div');
@@ -236,8 +242,13 @@
     });
 
     try {
-      const element = document.getElementById('simulador-card');
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const canvas = await html2canvas(card, { 
+        scale: 2, 
+        useCORS: true, 
+        backgroundColor: "#ffffff",
+        windowWidth: 1200, // Informa ao gerador que a tela tem 1200px
+        scrollY: 0
+      });
 
       if(type === 'img') {
         canvas.toBlob(async blob => {
@@ -246,23 +257,102 @@
             await navigator.clipboard.write([item]);
             alert("✅ Imagem copiada! Agora é só colar no WhatsApp.");
           } catch (err) {
-            alert("Erro ao copiar imagem. Tente usar o botão de PDF.");
+            alert("Erro ao copiar imagem devido ao sistema do seu celular. Tente usar o botão de PDF.");
           }
         });
       } else {
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('l', 'mm', 'a4');
+        const pdf = new jsPDF('l', 'mm', 'a4'); // 'l' garante folha deitada
         const imgData = canvas.toDataURL('image/png');
-        const pdfW = pdf.internal.pageSize.getWidth();
-        const pdfH = (canvas.height * pdfW) / canvas.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
+        
+        const pdfW_page = pdf.internal.pageSize.getWidth();
+        const pdfH_page = pdf.internal.pageSize.getHeight();
+        
+        let imgW = pdfW_page;
+        let imgH = (canvas.height * imgW) / canvas.width;
+        let x = 0;
+        let y = 0;
+
+        // Se a foto ficar maior que a altura da folha A4, ele reduz para caber certinho
+        if (imgH > pdfH_page) {
+          imgH = pdfH_page;
+          imgW = (canvas.width * pdfH_page) / canvas.height;
+          x = (pdfW_page - imgW) / 2; // Centraliza no meio da página
+        } else {
+          y = (pdfH_page - imgH) / 2; // Centraliza no meio da página
+        }
+
+        pdf.addImage(imgData, 'PNG', x, y, imgW, imgH);
         pdf.save(`Simulacao_${document.getElementById('cliente').value || 'Cliente'}.pdf`);
       }
     } catch (e) {
       alert("Erro ao gerar arquivo.");
     } finally {
+      // Devolve tudo ao normal no celular da pessoa
       placeholders.forEach(p => { p.text.remove(); p.input.style.display = ''; });
-      btnArea.style.visibility = 'visible';
+      card.classList.remove('force-desktop');
+      btnArea.style.display = 'grid';
+      window.scrollTo(0, originalScrollY);
+    }
+  }
+
+  // FUNÇÃO PARA ENVIAR DADOS PARA O GOOGLE SHEETS
+  async function salvarNaPlanilha() {
+    const btnSalvar = document.getElementById('btn-salvar');
+    
+    // Muda o texto do botão para mostrar que está pensando
+    btnSalvar.innerText = "⏳ Salvando...";
+    btnSalvar.disabled = true;
+
+    // Pega o nome do consultor do arquivo config.js
+    const nomeConsultor = typeof CONFIG !== 'undefined' && CONFIG.nomeConsultora ? CONFIG.nomeConsultora : "Geral";
+
+    // Reúne todos os dados digitados na tela
+    const dadosParaSalvar = {
+      consultor: nomeConsultor,
+      cliente: document.getElementById('cliente').value,
+      empreendimento: document.getElementById('empreendimento').value,
+      vImovelLocal: document.getElementById('vImovelLocal').value,
+      vParcela: document.getElementById('vParcela').value,
+      vFinanciado: document.getElementById('vFinanciado').value,
+      vDesconto: document.getElementById('vDesconto').value,
+      vEntrada: document.getElementById('vEntrada').value,
+      vMorarBem: document.getElementById('vMorarBem').value,
+      vCodhab: document.getElementById('vCodhab').value,
+      vEntradaFacil: document.getElementById('vEntradaFacil').value,
+      vObservacoes: document.getElementById('vObservacoes').value,
+      vCartorio: document.getElementById('vCartorio').value,
+      vSeguroObra: document.getElementById('vSeguroObra').value
+    };
+
+    // Trava de segurança: obriga a colocar o nome do cliente
+    if(!dadosParaSalvar.cliente) {
+      alert("Por favor, preencha o nome do cliente antes de salvar.");
+      btnSalvar.innerText = "💾 Salvar na Planilha";
+      btnSalvar.disabled = false;
+      return;
+    }
+
+    // =========================================================
+    // ⚠️ ATENÇÃO: COLE O SEU LINK DO APPS SCRIPT AQUI NA LINHA ABAIXO
+    // =========================================================
+    const urlDoGoogle = "COLE_AQUI_O_SEU_LINK_DO_APPS_SCRIPT";
+
+    try {
+      // Faz o envio silencioso
+      await fetch(urlDoGoogle, {
+        method: 'POST',
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(dadosParaSalvar)
+      });
+
+      alert("✅ Dados salvos com sucesso na planilha!");
+    } catch (erro) {
+      alert("❌ Ocorreu um erro ao tentar salvar. Verifique sua conexão.");
+    } finally {
+      // Volta o botão ao normal
+      btnSalvar.innerText = "💾 Salvar na Planilha";
+      btnSalvar.disabled = false;
     }
   }
 
